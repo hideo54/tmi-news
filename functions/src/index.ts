@@ -1,6 +1,8 @@
-import * as functions from 'firebase-functions';
 import admin from 'firebase-admin'; // Default import required
 import { getFirestore } from 'firebase-admin/firestore';
+import { setGlobalOptions } from 'firebase-functions/v2';
+import { onRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { App, ExpressReceiver } from '@slack/bolt';
 import dotenv from 'dotenv';
 dotenv.config();
@@ -25,22 +27,20 @@ const slackApp = new App({
     receiver,
 });
 
-export const tmiSlackHourlyJob = functions
-    .region('asia-northeast1')
-    .pubsub.schedule('0 * * * *')
-    .timeZone('Asia/Tokyo')
-    .onRun(async () => {
-        admin.initializeApp();
-        const firestoreDb = getFirestore();
-        await facultyNews({ slackApp, firestoreDb, channel: facultyNewsChannel });
-    });
+setGlobalOptions({
+    region: 'asia-northeast1',
+});
 
-export const tmiSlackEventsReceiver = functions
-    .region('asia-northeast1')
-    .https.onRequest(
-        notifier({
-            slackApp,
-            receiver,
-            channel: randomChannel,
-        })
-    );
+export const tmiSlackHourlyJob = onSchedule('every 1 hours', async () => {
+    admin.initializeApp();
+    const firestoreDb = getFirestore();
+    await facultyNews({ slackApp, firestoreDb, channel: facultyNewsChannel });
+});
+
+export const tmiSlackEventsReceiver = onRequest(
+    notifier({
+        slackApp,
+        receiver,
+        channel: randomChannel,
+    })
+);
